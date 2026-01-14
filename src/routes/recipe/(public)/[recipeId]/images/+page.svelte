@@ -21,7 +21,7 @@
 	$effect(() => {
 		filteredPhotos = photos
 			.filter((photo) => photo.fileType)
-			.sort((a, b) => (b.mainPhoto || 0) - (a.mainPhoto || 0));
+			.sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
 	});
 
 	async function handleSetMainPhoto(mainPhotoId) {

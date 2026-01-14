@@ -10,12 +10,21 @@ import { prisma } from '$lib/server/prisma'
  * @returns {Promise<Object>} A promise that resolves to the created recipe photo entry.
  */
 export async function createRecipePhotoEntry(recipeUid, imageUrl, fileType, isMain = false) {
+	const latestPhoto = await prisma.recipePhoto.findFirst({
+		where: { recipeUid },
+		orderBy: { sortOrder: 'desc' },
+		select: { sortOrder: true }
+	})
+	const nextSortOrder =
+		typeof latestPhoto?.sortOrder === 'number' ? latestPhoto.sortOrder + 1 : 0
+
 	return await prisma.recipePhoto.create({
 		data: {
 			recipeUid: recipeUid,
 			url: imageUrl,
 			fileType: fileType,
-			isMain: isMain
+			isMain: isMain,
+			sortOrder: nextSortOrder
 		}
 	})
 }

@@ -54,6 +54,7 @@ export async function GET({ params, locals }) {
 				photos: {
 					orderBy: [
 						{ isMain: 'desc' }, // true first
+						{ sortOrder: 'asc' },
 						{ id: 'asc' } // fallback to earliest if no isMain
 					],
 					select: {

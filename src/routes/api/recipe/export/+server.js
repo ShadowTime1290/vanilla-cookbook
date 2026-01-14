@@ -133,6 +133,7 @@ export async function POST({ locals }) {
 					select: { category: { select: { name: true, uid: true } } }
 				},
 				photos: {
+					orderBy: [{ sortOrder: 'asc' }, { id: 'asc' }],
 					select: { id: true, fileType: true, isMain: true, url: true }
 				}
 			}

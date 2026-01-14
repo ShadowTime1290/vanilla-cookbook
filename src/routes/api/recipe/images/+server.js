@@ -42,10 +42,19 @@ export async function PUT({ request, locals }) {
 				})
 			}
 
+			const updateData = {
+				isMain: photoData.isMain,
+				notes: photoData.notes
+			}
+
+			if (typeof photoData.sortOrder === 'number') {
+				updateData.sortOrder = photoData.sortOrder
+			}
+
 			// Update the photo in the database
 			await prisma.recipePhoto.update({
 				where: { id: photoData.id },
-				data: { isMain: photoData.isMain, notes: photoData.notes }
+				data: updateData
 			})
 		}
 

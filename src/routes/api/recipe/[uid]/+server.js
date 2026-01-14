@@ -217,12 +217,14 @@ export async function GET({ params, locals }) {
 			},
 			include: {
 				photos: {
+					orderBy: [{ sortOrder: 'asc' }, { id: 'asc' }],
 					select: {
 						id: true,
 						url: true,
 						fileType: true,
 						isMain: true,
-						notes: true
+						notes: true,
+						sortOrder: true
 					}
 				},
 				categories: true

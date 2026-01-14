@@ -208,6 +208,7 @@ export async function deletePhotoById(id) {
  *   - id: number|string - The unique identifier for the photo to be updated.
  *   - notes: string - The new notes for the photo.
  *   - isMain: boolean - Whether the photo should be set as the main photo.
+ *   - sortOrder: number - The new display order for the photo.
  *
  * @returns {Promise<boolean>} A promise that resolves to true if the photos were updated successfully, or false if not.
  */
