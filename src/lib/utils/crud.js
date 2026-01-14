@@ -235,6 +235,38 @@ export async function updatePhotos(photos) {
 }
 
 /**
+ * Uploads one or more photos for a recipe and returns the created photo records.
+ *
+ * @param {number|string} recipeId - Unique identifier for the recipe to upload images for.
+ * @param {File[]} files - The image files to upload.
+ * @returns {Promise<{success: boolean, data?: Array<Object>, error?: string}>}
+ */
+export async function uploadRecipePhotos(recipeId, files) {
+	try {
+		const formData = new FormData()
+		for (const file of files) {
+			formData.append('images', file)
+		}
+
+		const response = await fetch(`/api/recipe/${recipeId}/images`, {
+			method: 'POST',
+			body: formData
+		})
+
+		if (!response.ok) {
+			const errorData = await response.json()
+			throw new Error(errorData.message || 'Error uploading photos')
+		}
+
+		const data = await response.json()
+		return { success: true, data: data?.photos ?? [] }
+	} catch (error) {
+		console.error('Error uploading photos:', error.message)
+		return { success: false, error: error.message }
+	}
+}
+
+/**
  * Checks if a file exists in the /uploads/import directory.
  *
  * @param {string} filename - The name of the file to look for.

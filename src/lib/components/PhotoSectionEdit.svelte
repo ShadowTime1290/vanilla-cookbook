@@ -2,7 +2,7 @@
 	import Delete from '$lib/components/svg/Delete.svelte'
 	import UpArrow from '$lib/components/svg/UpArrow.svelte'
 
-	import { deletePhotoById, updatePhotos } from '$lib/utils/crud'
+import { deletePhotoById, updatePhotos, uploadRecipePhotos } from '$lib/utils/crud'
 	import FileInput from '$lib/components/ui/Form/FileInput.svelte'
 	import Button from '$lib/components/ui/Button.svelte'
 	import ConfirmationDialog from '$lib/components/ConfirmationDialog.svelte'
@@ -12,13 +12,20 @@
 
 	let filteredPhotos = $state()
 	let showDeleteConfirm = $state(false)
-	let pendingPhotoId = $state(null)
-	let draggingPhotoId = $state(null)
-	let dropTargetId = $state(null)
+let pendingPhotoId = $state(null)
+let draggingPhotoId = $state(null)
+let dropTargetId = $state(null)
+let uploadingPhotos = $state(false)
+let uploadError = $state('')
 
-	$effect(() => {
-		filteredPhotos = recipe && recipe.photos ? recipe.photos.filter((photo) => photo.fileType) : []
-	})
+$effect(() => {
+	filteredPhotos =
+		recipe && recipe.photos
+			? recipe.photos
+					.filter((photo) => photo.fileType)
+					.sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
+			: []
+})
 
 	async function handleDeletePhoto(photoId) {
 		pendingPhotoId = photoId
@@ -41,13 +48,37 @@
 		}
 	}
 
-	function handleFilesChange(event) {
-		const inputEvent = event?.detail ?? event
-		// Convert the FileList to an array of files
-		const files = Array.from(inputEvent?.target?.files ?? [])
-		// Use the callback to notify the parent of the change
-		onSelectedFilesChange && onSelectedFilesChange(files)
-	}
+function handleFilesChange(event) {
+	const inputEvent = event?.detail ?? event
+	const input = inputEvent?.target
+	const files = Array.from(input?.files ?? [])
+	if (!files.length) return
+
+	uploadError = ''
+	uploadingPhotos = true
+	uploadRecipePhotos(recipe.uid, files)
+		.then((result) => {
+			if (!result?.success) {
+				uploadError = result?.error || 'Failed to upload photos.'
+				return
+			}
+			if (result.data?.length) {
+				const merged = [...filteredPhotos, ...result.data].sort(
+					(a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0)
+				)
+				filteredPhotos = merged
+			}
+			onSelectedFilesChange && onSelectedFilesChange([])
+		})
+		.catch((error) => {
+			console.error('Error uploading photos:', error)
+			uploadError = 'Failed to upload photos.'
+		})
+		.finally(() => {
+			uploadingPhotos = false
+			if (input) input.value = ''
+		})
+}
 
 	async function confirmDelete() {
 		const photoId = pendingPhotoId
@@ -139,7 +170,15 @@
 </script>
 
 <FileInput id="file" label="Upload Images" name="images" on:change={handleFilesChange} multiple />
-<p class="text-xs mt-2">Drag photos to reorder them. The first photo is the cover photo.</p>
+<p class="text-xs mt-2">
+	Drag photos to reorder them. The first photo is the cover photo.
+	{#if uploadingPhotos}
+		<span> Uploading...</span>
+	{/if}
+</p>
+{#if uploadError}
+	<p class="text-xs text-red-600 mt-1">{uploadError}</p>
+{/if}
 
 <div class="flex flex-wrap gap-3 mb-4 mt-4">
 	{#each filteredPhotos as photo}
