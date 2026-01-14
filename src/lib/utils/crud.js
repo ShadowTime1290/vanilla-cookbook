@@ -239,27 +239,42 @@ export async function updatePhotos(photos) {
  *
  * @param {number|string} recipeId - Unique identifier for the recipe to upload images for.
  * @param {File[]} files - The image files to upload.
+ * @param {(percent: number) => void} [onProgress] - Progress callback.
  * @returns {Promise<{success: boolean, data?: Array<Object>, error?: string}>}
  */
-export async function uploadRecipePhotos(recipeId, files) {
+export async function uploadRecipePhotos(recipeId, files, onProgress) {
 	try {
 		const formData = new FormData()
 		for (const file of files) {
 			formData.append('images', file)
 		}
 
-		const response = await fetch(`/api/recipe/${recipeId}/images`, {
-			method: 'POST',
-			body: formData
+		const result = await new Promise((resolve, reject) => {
+			const xhr = new XMLHttpRequest()
+			xhr.open('POST', `/api/recipe/${recipeId}/images`)
+			xhr.responseType = 'json'
+
+			xhr.upload.onprogress = (event) => {
+				if (!event.lengthComputable) return
+				const percent = Math.round((event.loaded / event.total) * 100)
+				if (onProgress) onProgress(percent)
+			}
+
+			xhr.onload = () => {
+				const ok = xhr.status >= 200 && xhr.status < 300
+				const responseData = xhr.response || JSON.parse(xhr.responseText || '{}')
+				if (!ok) {
+					reject(new Error(responseData.message || 'Error uploading photos'))
+					return
+				}
+				resolve(responseData)
+			}
+
+			xhr.onerror = () => reject(new Error('Error uploading photos'))
+			xhr.send(formData)
 		})
 
-		if (!response.ok) {
-			const errorData = await response.json()
-			throw new Error(errorData.message || 'Error uploading photos')
-		}
-
-		const data = await response.json()
-		return { success: true, data: data?.photos ?? [] }
+		return { success: true, data: result?.photos ?? [] }
 	} catch (error) {
 		console.error('Error uploading photos:', error.message)
 		return { success: false, error: error.message }

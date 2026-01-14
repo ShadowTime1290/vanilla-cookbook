@@ -2,7 +2,7 @@
 	import Delete from '$lib/components/svg/Delete.svelte'
 	import UpArrow from '$lib/components/svg/UpArrow.svelte'
 
-import { deletePhotoById, updatePhotos, uploadRecipePhotos } from '$lib/utils/crud'
+	import { deletePhotoById, updatePhotos, uploadRecipePhotos } from '$lib/utils/crud'
 	import FileInput from '$lib/components/ui/Form/FileInput.svelte'
 	import Button from '$lib/components/ui/Button.svelte'
 	import ConfirmationDialog from '$lib/components/ConfirmationDialog.svelte'
@@ -12,20 +12,23 @@ import { deletePhotoById, updatePhotos, uploadRecipePhotos } from '$lib/utils/cr
 
 	let filteredPhotos = $state()
 	let showDeleteConfirm = $state(false)
-let pendingPhotoId = $state(null)
-let draggingPhotoId = $state(null)
-let dropTargetId = $state(null)
-let uploadingPhotos = $state(false)
-let uploadError = $state('')
+	let pendingPhotoId = $state(null)
+	let draggingPhotoId = $state(null)
+	let dropTargetId = $state(null)
+	let uploadingPhotos = $state(false)
+	let uploadError = $state('')
+	let uploadProgress = $state(0)
+	let uploadCompleted = $state(false)
+	let uploadCompleteTimer = null
 
-$effect(() => {
-	filteredPhotos =
-		recipe && recipe.photos
-			? recipe.photos
-					.filter((photo) => photo.fileType)
-					.sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
-			: []
-})
+	$effect(() => {
+		filteredPhotos =
+			recipe && recipe.photos
+				? recipe.photos
+						.filter((photo) => photo.fileType)
+						.sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
+				: []
+	})
 
 	async function handleDeletePhoto(photoId) {
 		pendingPhotoId = photoId
@@ -48,16 +51,27 @@ $effect(() => {
 		}
 	}
 
-function handleFilesChange(event) {
-	const inputEvent = event?.detail ?? event
-	const input = inputEvent?.target
-	const files = Array.from(input?.files ?? [])
-	if (!files.length) return
+	async function handleFilesChange(event) {
+		const inputEvent = event?.detail ?? event
+		const input = inputEvent?.target
+		const files = Array.from(input?.files ?? [])
+		if (!files.length) return
 
-	uploadError = ''
-	uploadingPhotos = true
-	uploadRecipePhotos(recipe.uid, files)
-		.then((result) => {
+		if (uploadCompleteTimer) {
+			clearTimeout(uploadCompleteTimer)
+			uploadCompleteTimer = null
+		}
+
+		uploadError = ''
+		uploadProgress = 0
+		uploadCompleted = false
+		uploadingPhotos = true
+		let success = false
+
+		try {
+			const result = await uploadRecipePhotos(recipe.uid, files, (percent) => {
+				uploadProgress = percent
+			})
 			if (!result?.success) {
 				uploadError = result?.error || 'Failed to upload photos.'
 				return
@@ -69,16 +83,27 @@ function handleFilesChange(event) {
 				filteredPhotos = merged
 			}
 			onSelectedFilesChange && onSelectedFilesChange([])
-		})
-		.catch((error) => {
+			success = true
+		} catch (error) {
 			console.error('Error uploading photos:', error)
 			uploadError = 'Failed to upload photos.'
-		})
-		.finally(() => {
-			uploadingPhotos = false
+		} finally {
 			if (input) input.value = ''
-		})
-}
+			if (success) {
+				uploadProgress = 100
+				uploadCompleted = true
+				uploadCompleteTimer = setTimeout(() => {
+					uploadingPhotos = false
+					uploadCompleted = false
+					uploadProgress = 0
+				}, 350)
+			} else {
+				uploadingPhotos = false
+				uploadCompleted = false
+				uploadProgress = 0
+			}
+		}
+	}
 
 	async function confirmDelete() {
 		const photoId = pendingPhotoId
@@ -169,13 +194,28 @@ function handleFilesChange(event) {
 	}
 </script>
 
-<FileInput id="file" label="Upload Images" name="images" on:change={handleFilesChange} multiple />
-<p class="text-xs mt-2">
-	Drag photos to reorder them. The first photo is the cover photo.
-	{#if uploadingPhotos}
-		<span> Uploading...</span>
-	{/if}
-</p>
+{#if uploadingPhotos}
+	<div class="form-control w-full">
+		<label class="label">
+			<span class="label-text">Uploading photos... {uploadProgress}%</span>
+		</label>
+		<div
+			class="upload-progress"
+			role="progressbar"
+			aria-label="Uploading photos"
+			aria-valuemin="0"
+			aria-valuemax="100"
+			aria-valuenow={uploadProgress}>
+			<span
+				class="upload-progress__bar"
+				class:upload-complete={uploadCompleted}
+				style={`width: ${uploadProgress}%`}></span>
+		</div>
+	</div>
+{:else}
+	<FileInput id="file" label="Upload Images" name="images" on:change={handleFilesChange} multiple />
+{/if}
+<p class="text-xs mt-2">Drag photos to reorder them. The first photo is the cover photo.</p>
 {#if uploadError}
 	<p class="text-xs text-red-600 mt-1">{uploadError}</p>
 {/if}
@@ -245,5 +285,22 @@ function handleFilesChange(event) {
 	.photo-card.is-drop-target {
 		outline: 2px dashed var(--pico-primary, #2563eb);
 		outline-offset: 4px;
+	}
+
+	.upload-progress {
+		position: relative;
+		height: 2.5rem;
+		border: 1px solid var(--color-primary);
+		border-radius: var(--pico-border-radius, 0.375rem);
+		background: var(--pico-background-color, transparent);
+		overflow: hidden;
+	}
+
+	.upload-progress__bar {
+		display: block;
+		height: 100%;
+		width: 0%;
+		background: var(--color-primary);
+		transition: width 0.45s ease-out;
 	}
 </style>
