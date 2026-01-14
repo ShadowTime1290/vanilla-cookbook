@@ -40,8 +40,5 @@ export function urlToFilename(url) {
 		.replace(/\./g, '_')
 		.replace(/[<>:"/\\|?*]/g, '_') // Remove characters that are invalid on Windows
 
-	// Trim trailing dots/spaces which Windows does not allow in filenames
-	const sanitizedUrl = simplifiedUrl.replace(/[. ]+$/, '')
-
-	return `${sanitizedUrl}.html`
+	return `${simplifiedUrl}.html`
 }
