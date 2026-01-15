@@ -2,8 +2,14 @@
 	import { checkImageExistence } from '$lib/utils/image/imageUtils'
 	import { onMount } from 'svelte'
 
-	import PhotoSectionEdit from './PhotoSectionEdit.svelte'
-	import PhotoSectionNew from './PhotoSectionNew.svelte'
+	import PhotoSectionUploader from './PhotoSectionUploader.svelte'
+	import {
+		deletePhotoById,
+		deleteTempRecipePhoto,
+		updatePhotos,
+		uploadRecipePhotos,
+		uploadTempRecipePhotos
+	} from '$lib/utils/crud'
 	import Input from '$lib/components/ui/Form/Input.svelte'
 	import Textarea from '$lib/components/ui/Form/Textarea.svelte'
 	import Button from '$lib/components/ui/Button.svelte'
@@ -41,6 +47,7 @@
 	let imageExists = $state(false)
 	let cleaningIngredients = $state(false)
 	let cleaningDirections = $state(false)
+	let editPhotos = $state([])
 
 	async function handleCleanIngredients() {
 		if (!recipe.ingredients || recipe.ingredients.trim() === '') return
@@ -118,6 +125,68 @@
 			})
 		}
 	})
+
+	$effect(() => {
+		if (!editMode) return
+		editPhotos =
+			recipe && recipe.photos
+				? recipe.photos
+						.filter((photo) => photo.fileType)
+						.sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
+				: []
+	})
+
+	function applySortOrder(photos) {
+		return photos.map((photo, index) => ({
+			...photo,
+			sortOrder: index,
+			isMain: index === 0
+		}))
+	}
+
+	function buildPhotoUpdatePayload(photos) {
+		return photos.map((photo, index) => ({
+			id: photo.id,
+			isMain: photo.isMain,
+			notes: photo.notes ?? null,
+			sortOrder: typeof photo.sortOrder === 'number' ? photo.sortOrder : index
+		}))
+	}
+
+	async function handleEditUpload(files, onProgress) {
+		return uploadRecipePhotos(recipe.uid, files, onProgress)
+	}
+
+	async function handleEditDelete(photo) {
+		if (!photo?.id) return false
+		return deletePhotoById(photo.id)
+	}
+
+	async function handleEditReorder(photos) {
+		const success = await updatePhotos(buildPhotoUpdatePayload(photos))
+		if (!success) {
+			console.error('Failed to update photo order.')
+		}
+	}
+
+	function handleEditUploadSuccess() {
+		onSelectedFilesChange && onSelectedFilesChange([])
+	}
+
+	async function handleNewUpload(files, onProgress) {
+		return uploadTempRecipePhotos(files, onProgress)
+	}
+
+	async function handleNewDelete(photo) {
+		if (!photo?.filename) return false
+		return deleteTempRecipePhoto(photo.filename)
+	}
+
+	const getEditPhotoId = (photo) => photo.id
+	const getEditPhotoSrc = (photo) => `/api/recipe/image/${photo.id}`
+	const isEditMainPhoto = (photo) => !!photo.isMain
+	const getNewPhotoId = (photo) => photo.filename
+	const getNewPhotoSrc = (photo) => photo.url
 </script>
 
 <p class="text-xs mb-2 mt-2">
@@ -203,10 +272,40 @@
 		</div>
 
 		<!-- Full-width photo section -->
+		{#if !editMode && recipe.image_url && imageExists}
+			<img
+				class="w-32 h-auto object-cover rounded-lg shadow-md mb-4"
+				loading="lazy"
+				src={recipe.image_url}
+				alt="{recipe.image_url} thumbnail" />
+		{/if}
 		{#if editMode}
-			<PhotoSectionEdit {recipe} {onSelectedFilesChange} />
+			<PhotoSectionUploader
+				class="mb-4"
+				bind:photos={editPhotos}
+				onUpload={handleEditUpload}
+				onUploadSuccess={handleEditUploadSuccess}
+				onDelete={handleEditDelete}
+				onReorder={handleEditReorder}
+				normalizePhotos={applySortOrder}
+				getPhotoId={getEditPhotoId}
+				getPhotoSrc={getEditPhotoSrc}
+				isMainPhoto={isEditMainPhoto}
+				showCoverBadge={true}
+				showMainRing={false}
+				showSetMain={false}
+				confirmDelete={true} />
 		{:else}
-			<PhotoSectionNew {recipe} {imageExists} {tempPhotos} {onTempPhotosChange} />
+			<PhotoSectionUploader
+				class="mb-4"
+				bind:photos={tempPhotos}
+				onPhotosChange={onTempPhotosChange}
+				onUpload={handleNewUpload}
+				onDelete={handleNewDelete}
+				getPhotoId={getNewPhotoId}
+				getPhotoSrc={getNewPhotoSrc}
+				showCoverBadge={true}
+				confirmDelete={true} />
 		{/if}
 
 		<!-- Full-width large text fields -->
