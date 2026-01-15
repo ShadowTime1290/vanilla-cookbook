@@ -1,6 +1,6 @@
 <script>
-	import { onMount } from 'svelte'
-	import { goto } from '$app/navigation'
+	import { onDestroy, onMount } from 'svelte'
+	import { beforeNavigate, goto } from '$app/navigation'
 	import { createRecipe } from '$lib/utils/crud'
 	import { handleScrape } from '$lib/utils/parse/parseHelpersClient'
 	import RecipeNewScrape from '$lib/components/RecipeNewScrape.svelte'
@@ -29,12 +29,16 @@
 	let sharedText = $state(null)
 	let feedbackMessage = $state('')
 	let feedbackType = $state('info')
+	let tempPhotos = $state([])
+	let cleanupTriggered = false
+	let allowLeave = $state(false)
+	const unsavedWarning = 'You have unsaved changes. Are you sure you want to leave?'
 
 	let initialMode = $state('url') // 'url' | 'text' | 'image'
 
-let { data } = $props()
+	let { data } = $props()
 
-let { apiKeyPresent, aiEnabled, imageAllowed, userUnits, userLanguage } = $state(data)
+	let { apiKeyPresent, aiEnabled, imageAllowed, userUnits, userLanguage } = $state(data)
 
 	/**
 	 * Handles the scraping event.
@@ -81,14 +85,77 @@ let { apiKeyPresent, aiEnabled, imageAllowed, userUnits, userLanguage } = $state
 	async function handleCreateRecipe(event) {
 		event.preventDefault() // Prevent default form submission
 
-		const result = await createRecipe(recipe)
+		const result = await createRecipe({
+			...recipe,
+			tempPhotos: tempPhotos.map((photo) => photo.filename)
+		})
 		if (result.success) {
+			tempPhotos = []
+			cleanupTriggered = true
+			allowLeave = true
 			// Handle success, maybe redirect or show a success message
 			await goto(`/recipe/${result.data.uid}/view/`)
 		} else {
 			console.error('Error:', result.error)
 		}
 	}
+
+	function handleTempPhotosChange(photos) {
+		tempPhotos = photos
+	}
+
+	function hasUnsavedChanges() {
+		if (allowLeave) return false
+		if (tempPhotos.length) return true
+		const base = defaultRecipe ?? {}
+		return Object.keys(recipe ?? {}).some((key) => {
+			const value = recipe[key]
+			const baseValue = base[key]
+			if (value === undefined || value === null || value === '') return false
+			return value !== baseValue
+		})
+	}
+
+	function cleanupTempPhotos() {
+		if (cleanupTriggered || !tempPhotos.length) return
+		cleanupTriggered = true
+		const filenames = tempPhotos.map((photo) => photo.filename).filter(Boolean)
+		if (!filenames.length) return
+		fetch('/api/recipe/images/temp/cleanup', {
+			method: 'POST',
+			headers: {
+				'Content-Type': 'application/json'
+			},
+			body: JSON.stringify({ files: filenames }),
+			keepalive: true
+		}).catch((error) => {
+			console.error('Error cleaning up temp photos:', error)
+		})
+	}
+
+	onDestroy(() => {
+		cleanupTempPhotos()
+	})
+
+	onMount(() => {
+		const handlePageHide = () => cleanupTempPhotos()
+		const handleBeforeUnload = (event) => {
+			if (!hasUnsavedChanges()) return
+			event.preventDefault()
+			event.returnValue = ''
+		}
+		window.addEventListener('pagehide', handlePageHide)
+		window.addEventListener('beforeunload', handleBeforeUnload)
+		return () => {
+			window.removeEventListener('pagehide', handlePageHide)
+			window.removeEventListener('beforeunload', handleBeforeUnload)
+		}
+	})
+
+	beforeNavigate(({ cancel }) => {
+		if (!hasUnsavedChanges()) return
+		if (!confirm(unsavedWarning)) cancel()
+	})
 </script>
 
 <RecipeNewScrape
@@ -104,7 +171,9 @@ let { apiKeyPresent, aiEnabled, imageAllowed, userUnits, userLanguage } = $state
 
 <RecipeForm
 	bind:recipe
+	bind:tempPhotos
 	onSubmit={handleCreateRecipe}
+	onTempPhotosChange={handleTempPhotosChange}
 	{aiEnabled}
 	{userUnits}
 	{userLanguage} />

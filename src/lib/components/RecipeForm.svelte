@@ -10,12 +10,15 @@
 	import Spinner from '$lib/components/Spinner.svelte'
 
 	// If new recipe, default set to false
-	/** @type {{recipe: any, onSubmit: any, buttonText?: string, selectedFiles?: any, baseUrl?: string, editMode?: boolean, recipeCategories?: any, aiEnabled?: boolean, userUnits?: string, userLanguage?: string}} */
+	/** @type {{recipe: any, onSubmit: any, buttonText?: string, selectedFiles?: any, baseUrl?: string, editMode?: boolean, recipeCategories?: any, aiEnabled?: boolean, userUnits?: string, userLanguage?: string, onSelectedFilesChange?: any, tempPhotos?: any, onTempPhotosChange?: any}} */
 	let {
 		recipe = $bindable(),
 		onSubmit,
 		buttonText = 'Add Recipe',
+		selectedFiles = $bindable([]),
 		onSelectedFilesChange,
+		tempPhotos = $bindable([]),
+		onTempPhotosChange,
 		baseUrl = '',
 		editMode = false,
 		recipeCategories = null,
@@ -203,7 +206,7 @@
 		{#if editMode}
 			<PhotoSectionEdit {recipe} {onSelectedFilesChange} />
 		{:else}
-			<PhotoSectionNew {recipe} {imageExists} />
+			<PhotoSectionNew {recipe} {imageExists} {tempPhotos} {onTempPhotosChange} />
 		{/if}
 
 		<!-- Full-width large text fields -->

@@ -6,6 +6,9 @@ import {
 } from '$lib/utils/image/imageUtils'
 import { processImage } from '$lib/utils/image/imageBackend'
 import { createRecipePhotoEntry, removeRecipePhotoEntry } from '$lib/utils/api'
+import { validImageTypes } from '$lib/utils/import/importHelpers'
+import { promises as fsPromises } from 'fs'
+import path from 'path'
 
 export async function POST({ request, locals, url }) {
 	const session = await locals.auth.validate()
@@ -38,7 +41,8 @@ export async function POST({ request, locals, url }) {
 		total_time,
 		servings,
 		nutritional_info,
-		is_public
+		is_public,
+		tempPhotos
 	} = recipeData
 
 	let recipe
@@ -100,6 +104,45 @@ export async function POST({ request, locals, url }) {
 					}
 				}
 			)
+		}
+	}
+
+	if (Array.isArray(tempPhotos) && tempPhotos.length) {
+		const existingMain = await prisma.recipePhoto.findFirst({
+			where: { recipeUid: recipe.uid, isMain: true },
+			select: { id: true }
+		})
+		let hasMain = Boolean(existingMain)
+
+		for (let index = 0; index < tempPhotos.length; index++) {
+			const filename = tempPhotos[index]
+			if (!filename || typeof filename !== 'string') continue
+			if (!filename.startsWith(`${user.userId}_`)) continue
+
+			const extension = filename.split('.').pop()?.toLowerCase()
+			if (!extension || !validImageTypes.includes(extension)) continue
+
+			const tempPath = path.join('uploads', 'temp', filename)
+			try {
+				await fsPromises.access(tempPath)
+			} catch (error) {
+				console.error('Temp image missing:', filename)
+				continue
+			}
+
+			let photoEntry
+			try {
+				const isMain = !hasMain && index === 0
+				photoEntry = await createRecipePhotoEntry(recipe.uid, null, extension, isMain)
+				const destinationPath = path.join('uploads', 'images', `${photoEntry.id}.${extension}`)
+				await fsPromises.rename(tempPath, destinationPath)
+				if (isMain) hasMain = true
+			} catch (error) {
+				console.error('Error attaching temp photo:', error)
+				if (photoEntry?.id) {
+					await removeRecipePhotoEntry(photoEntry.id)
+				}
+			}
 		}
 	}
 	return new Response(

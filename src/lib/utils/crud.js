@@ -282,6 +282,76 @@ export async function uploadRecipePhotos(recipeId, files, onProgress) {
 }
 
 /**
+ * Uploads one or more photos to a temporary staging area for new recipes.
+ *
+ * @param {File[]} files - The image files to upload.
+ * @param {(percent: number) => void} [onProgress] - Progress callback.
+ * @returns {Promise<{success: boolean, data?: Array<Object>, error?: string}>}
+ */
+export async function uploadTempRecipePhotos(files, onProgress) {
+	try {
+		const formData = new FormData()
+		for (const file of files) {
+			formData.append('images', file)
+		}
+
+		const result = await new Promise((resolve, reject) => {
+			const xhr = new XMLHttpRequest()
+			xhr.open('POST', `/api/recipe/images/temp`)
+			xhr.responseType = 'json'
+
+			xhr.upload.onprogress = (event) => {
+				if (!event.lengthComputable) return
+				const percent = Math.round((event.loaded / event.total) * 100)
+				if (onProgress) onProgress(percent)
+			}
+
+			xhr.onload = () => {
+				const ok = xhr.status >= 200 && xhr.status < 300
+				const responseData = xhr.response || JSON.parse(xhr.responseText || '{}')
+				if (!ok) {
+					reject(new Error(responseData.message || 'Error uploading photos'))
+					return
+				}
+				resolve(responseData)
+			}
+
+			xhr.onerror = () => reject(new Error('Error uploading photos'))
+			xhr.send(formData)
+		})
+
+		return { success: true, data: result?.photos ?? [] }
+	} catch (error) {
+		console.error('Error uploading photos:', error.message)
+		return { success: false, error: error.message }
+	}
+}
+
+/**
+ * Deletes a temporary photo by filename.
+ *
+ * @param {string} filename - The temp photo filename.
+ * @returns {Promise<boolean>} A promise that resolves to true if the photo was deleted successfully.
+ */
+export async function deleteTempRecipePhoto(filename) {
+	try {
+		const response = await fetch(`/api/recipe/image/temp/${filename}`, {
+			method: 'DELETE'
+		})
+
+		if (!response.ok && response.status !== 204) {
+			const errorData = await response.json()
+			throw new Error(errorData.message || 'Error deleting temp photo')
+		}
+
+		return true
+	} catch (error) {
+		console.error('Error deleting temp photo:', error.message)
+		return false
+	}
+}
+
+/**
  * Checks if a file exists in the /uploads/import directory.
  *
  * @param {string} filename - The name of the file to look for.
