@@ -1,6 +1,5 @@
 import { prisma } from '$lib/server/prisma'
 import { createRecipePhotoEntry, removeRecipePhotoEntry } from '$lib/utils/api'
-import { mapContentTypeToFileTypeAndExtension } from '$lib/utils/image/imageUtils.js'
 import { saveFile, validImageTypes } from '$lib/utils/import/importHelpers'
 import { fileTypeFromBuffer } from 'file-type'
 
@@ -54,15 +53,15 @@ export async function POST({ request, locals, params }) {
 		const file = imageData[index]
 		let photoEntry
 		try {
-			const extension = mapContentTypeToFileTypeAndExtension(file.type).extension
-			const isMain = shouldSetMain && index === 0
-			photoEntry = await createRecipePhotoEntry(recipe.uid, null, extension, isMain)
 			const photoBuffer = await file.arrayBuffer()
-
 			const fileTypeResult = await fileTypeFromBuffer(photoBuffer)
 			if (!fileTypeResult || !validImageTypes.includes(fileTypeResult.ext)) {
 				throw new Error('Invalid image type.')
 			}
+
+			const extension = fileTypeResult.ext
+			const isMain = shouldSetMain && index === 0
+			photoEntry = await createRecipePhotoEntry(recipe.uid, null, extension, isMain)
 
 			const directory = 'uploads/images'
 			const fullFilename = `${photoEntry.id}.${extension}`
