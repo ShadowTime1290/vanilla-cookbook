@@ -54,9 +54,11 @@
 <style lang="scss">
 	.scale {
 		display: flex;
+		flex-wrap: wrap;
 		align-items: center;
 		gap: 0.5rem;
 		margin: 1rem 0;
+		max-width: 100%;
 
 		:global(button) {
 			margin-bottom: 0;
@@ -73,6 +75,20 @@
 			border-width: 0;
 			justify-content: center;
 			min-width: 3.25rem;
+		}
+	}
+
+	@media (max-width: 640px) {
+		.scale {
+			gap: 0.25rem;
+
+			button {
+				min-width: 2.75rem;
+			}
+
+			input {
+				min-width: 4rem;
+			}
 		}
 	}
 </style>

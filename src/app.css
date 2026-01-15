@@ -26,6 +26,10 @@
 		text-decoration: none;
 	}
 
+	body {
+		overflow-x: hidden;
+	}
+
 	/* Customize DaisyUI themes for softer colors */
 	[data-theme='light'] {
 		/* Softer primary blue - less intense */

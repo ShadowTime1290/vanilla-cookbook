@@ -6,7 +6,7 @@
 
 	function setRating(value) {
 		if (editable) {
-			let newRating = rating === value - 0.5 ? value : value - 0.5
+			let newRating = rating === value ? 0 : rating === value - 0.5 ? value : value - 0.5
 			ratingChanged?.(newRating) // Call function instead of modifying rating
 		}
 	}

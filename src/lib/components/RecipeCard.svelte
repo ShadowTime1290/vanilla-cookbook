@@ -14,6 +14,13 @@
 
 	let logged = $derived(item.log?.length > 0)
 	let favourite = $derived(item?.on_favorites)
+	let details = $derived(
+		[
+			{ label: 'Prep', value: item.prep_time },
+			{ label: 'Cook', value: item.cook_time },
+			{ label: 'Servings', value: item.servings }
+		].filter((detail) => detail.value)
+	)
 
 	// Reset image visibility when the recipe changes
 	$effect(() => {
@@ -37,9 +44,13 @@
 <a
 	href="/recipe/{item.uid}/view/"
 	class="flex items-stretch gap-3 mb-3 rounded-lg transition no-underline text-current">
-	<Card class="flex-1 hover:bg-base-200 min-h-36" size="md" side figureClass="w-32 flex-shrink-0">
+	<Card
+		class="flex-1 hover:bg-base-200 min-h-24 md:min-h-36 [&_.card-body]:h-full [&_.card-body]:py-1 [&_.card-body]:justify-start [&_.card-body]:pt-1 md:[&_.card-body]:pt-[10px]"
+		size="md"
+		side
+		figureClass="w-24 md:w-32 flex-shrink-0 self-stretch">
 		{#snippet figure()}
-			<div class="h-36 w-full overflow-hidden">
+			<div class="h-full min-h-24 md:min-h-36 w-full overflow-hidden">
 				{#if item.photos && item.photos.length > 0 && showPrimaryPhoto}
 					<img
 						class="h-full w-full object-cover"
@@ -61,26 +72,28 @@
 		{/snippet}
 
 		{#snippet title()}
-			<div class="flex items-start justify-between gap-2 w-full">
-				<span class="text-base md:text-2xl leading-snug line-clamp-2">{item.name}</span>
+			<div class="flex items-start justify-between gap-2 w-full min-w-0">
+				<span class="flex-1 min-w-0 text-base md:text-2xl leading-snug line-clamp-3 md:line-clamp-2">
+					{item.name}
+				</span>
 				{#if item.userId === data.user?.requestedUserId}
-					<div class="flex gap-1 shrink-0">
+					<div class="flex gap-2 shrink-0">
 						<Button
 							onclick={(event) => handleFavourite(item?.uid, event)}
 							style="ghost"
-							size="xs"
-							class="btn-circle tooltip hover:opacity-100 {favourite ? 'text-error opacity-100' : ''}"
+							size="sm"
+							class="btn-circle h-9 w-9 tooltip hover:opacity-100 {favourite ? 'text-error opacity-100' : ''}"
 							data-tip="Favourite Recipe">
-							<Favourite {favourite} width="16px" height="16px" />
+							<Favourite {favourite} width="22px" height="22px" />
 						</Button>
 						<Button
 							style="ghost"
-							size="xs"
-							class="btn-circle tooltip hover:opacity-100 {logged ? 'text-success opacity-100' : ''}"
+							size="sm"
+							class="btn-circle h-9 w-9 tooltip hover:opacity-100 {logged ? 'text-success opacity-100' : ''}"
 							data-tip={item.log?.length > 0
 								? `Cooked ${item.log.length} time${item.log.length > 1 ? 's' : ''}`
 								: 'Never cooked'}>
-							<Check checked={logged} width="16px" height="16px" />
+							<Check checked={logged} width="22px" height="22px" />
 						</Button>
 					</div>
 				{/if}
@@ -92,6 +105,13 @@
 				rating={item.rating}
 				editable={true}
 				ratingChanged={(newRating) => recipeRatingChanged?.(item.uid, newRating)} />
+			{#if details.length}
+				<div class="mt-5 max-md:mt-0 text-xs text-base-content/70 flex flex-wrap gap-x-3 gap-y-2">
+					{#each details as detail (detail.label)}
+						<span>{detail.label}: {detail.value}</span>
+					{/each}
+				</div>
+			{/if}
 		{/snippet}
 	</Card>
 </a>
