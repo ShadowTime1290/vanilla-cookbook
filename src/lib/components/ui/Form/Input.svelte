@@ -86,7 +86,7 @@
 
 <div class={`form-control ${fullWidth ? 'w-full' : ''}`}>
 	{#if label}
-		<label class={`floating-label ${fullWidth ? 'w-full' : ''}`}>
+		<label class={`floating-label static-float ${fullWidth ? 'w-full' : ''}`}>
 			<span>{label}</span>
 			<input
 				class={inputClasses}
@@ -117,3 +117,14 @@
 		<p class="validator-hint text-error mt-1" role="alert">{error}</p>
 	{/if}
 </div>
+
+<style>
+	:global(.floating-label.static-float > span) {
+		opacity: 1;
+		pointer-events: auto;
+		z-index: 2;
+		top: 0;
+		translate: -12.5% calc(-50% - 0.125em);
+		scale: 0.75;
+	}
+</style>
