@@ -1,4 +1,5 @@
 <script>
+	import { onMount } from 'svelte'
 	import FileInput from '$lib/components/ui/Form/FileInput.svelte'
 	import ConfirmationDialog from '$lib/components/ConfirmationDialog.svelte'
 	import PhotoCard from '$lib/components/PhotoCard.svelte'
@@ -63,6 +64,7 @@
 	let dropTargetId = $state(null)
 	let showDeleteConfirm = $state(false)
 	let pendingDeletePhoto = $state(null)
+	let isMobile = $state(false)
 
 	const resolvePhotoId = (photo) =>
 		getPhotoId ? getPhotoId(photo) : photo?.id ?? photo?.filename
@@ -205,6 +207,38 @@
 			await handleDeletePhoto(photo)
 		}
 	}
+
+	async function movePhotoByOffset(photo, offset) {
+		const targetId = resolvePhotoId(photo)
+		const fromIndex = photos.findIndex((item) => resolvePhotoId(item) === targetId)
+		const toIndex = fromIndex + offset
+		if (fromIndex < 0 || toIndex < 0 || toIndex >= photos.length) return
+		const nextPhotos = [...photos]
+		const [moved] = nextPhotos.splice(fromIndex, 1)
+		nextPhotos.splice(toIndex, 0, moved)
+		await updatePhotoList(nextPhotos)
+	}
+
+	onMount(() => {
+		if (typeof window === 'undefined') return
+		const media = window.matchMedia('(max-width: 640px)')
+		const updateMobile = () => {
+			isMobile = media.matches
+		}
+		updateMobile()
+		if (media.addEventListener) {
+			media.addEventListener('change', updateMobile)
+		} else if (media.addListener) {
+			media.addListener(updateMobile)
+		}
+		return () => {
+			if (media.removeEventListener) {
+				media.removeEventListener('change', updateMobile)
+			} else if (media.removeListener) {
+				media.removeListener(updateMobile)
+			}
+		}
+	})
 </script>
 
 <div class={['photo-uploader', className].filter(Boolean).join(' ')}>
@@ -234,14 +268,25 @@
 	{/if}
 
 	{#if photos.length}
-		<p class="text-xs mt-2">Drag photos to reorder them. The first photo is the cover photo.</p>
-		<div class="flex flex-wrap gap-4 mb-4 mt-4">
+		<p class="text-xs mt-2">
+			{#if isMobile}
+				Use the arrows to reorder photos. The first photo is the cover photo.
+			{:else}
+				Drag photos to reorder them. The first photo is the cover photo.
+			{/if}
+		</p>
+		<div class="grid grid-cols-3 gap-4 mb-4 mt-4 sm:flex sm:flex-wrap">
 			{#each photos as photo, index}
 				<PhotoCard
 					photo={photo}
 					index={index}
 					photoSrc={resolvePhotoSrc(photo)}
 					isMain={resolveIsMain(photo)}
+					showMoveControls={isMobile}
+					canDrag={!isMobile}
+					disableMoveLeft={index === 0}
+					disableMoveRight={index === photos.length - 1}
+					showIndexBadge={true}
 					showCoverBadge={showCoverBadge}
 					showMainRing={showMainRing}
 					showSetMain={showSetMain}
@@ -256,6 +301,8 @@
 					isDropTarget={resolvePhotoId(photo) === dropTargetId}
 					onDelete={requestDelete}
 					onSetMain={handleSetMainPhoto}
+					onMoveLeft={() => movePhotoByOffset(photo, -1)}
+					onMoveRight={() => movePhotoByOffset(photo, 1)}
 					onDragStart={(event) => handleDragStart(event, resolvePhotoId(photo))}
 					onDragOver={(event) => handleDragOver(event, resolvePhotoId(photo))}
 					onDragLeave={() => handleDragLeave(resolvePhotoId(photo))}
