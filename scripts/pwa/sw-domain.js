@@ -1,6 +1,8 @@
 import fs from "node:fs";
 import path from "node:path";
 
+// Cross-platform replacement for sw-domain.sh:
+// inject ORIGIN into generated service worker assets.
 const DEFAULT_ORIGIN = "http://localhost:5173";
 const projectRoot = process.cwd();
 
@@ -47,6 +49,7 @@ function replaceUrlPattern(filePath, escapedOrigin) {
 	const fullPath = path.resolve(projectRoot, filePath);
 	console.log(`---------- File: ${filePath} ----------`);
 
+	// During setup, these build artifacts may not exist yet.
 	if (!fs.existsSync(fullPath)) {
 		console.log(`Skipped: file not found (${filePath})`);
 		console.log("---------------------------------");
@@ -67,6 +70,7 @@ function replaceUrlPattern(filePath, escapedOrigin) {
 }
 
 const envFromFile = parseEnvFile(path.resolve(projectRoot, ".env"));
+// Precedence: runtime env var -> .env file -> local default.
 const origin = process.env.ORIGIN || envFromFile.ORIGIN || DEFAULT_ORIGIN;
 
 if (!process.env.ORIGIN && !envFromFile.ORIGIN) {
